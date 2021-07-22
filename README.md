@@ -9,6 +9,6 @@ Disables various anti-tamper checks in the game in order to load mods / aid it m
 * ... more ...
 
 ## Installation
-1. Download the latest release for your game version.
+1. Download the [latest release](https://github.com/Andoryuuta/MHS2Loader/releases) for your game version.
 2. Copy `dinput8.dll` and `LoaderCore.dll` to your game folder (next to `game.exe`)
 3. Place .dll mods into the `mods` folder.
