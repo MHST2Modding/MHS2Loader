@@ -1,0 +1,6 @@
+[submodule "extern/spdlog"]
+	path = extern/spdlog
+	url = https://github.com/gabime/spdlog
+[submodule "extern/minhook"]
+	path = extern/minhook
+	url = https://github.com/TsudaKageyu/minhook
