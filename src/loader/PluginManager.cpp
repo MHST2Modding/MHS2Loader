@@ -15,16 +15,25 @@ void PluginManager::InitPlugins() {
 	
 	auto logger = spdlog::get("Loader");
 
-	for (auto& p : fs::directory_iterator("mods"))
+	try
 	{
-		if (p.path().extension() == ".dll") {
-			logger->info("Loading {0}", p.path().string());
-			auto absDllPath = (fs::current_path() / p.path()).string();
+		for (auto& p : fs::directory_iterator("mods"))
+		{
+			if (p.path().extension() == ".dll") {
+				logger->info("Loading {0}", p.path().string());
+				auto absDllPath = (fs::current_path() / p.path()).string();
 
-			// Actually load it.
-			LoadLibraryA(absDllPath.c_str());
+				// Actually load it.
+				LoadLibraryA(absDllPath.c_str());
+			}
 		}
 	}
+	catch (const std::filesystem::filesystem_error& e)
+	{
+
+		logger->info("Got error: {0}", e.what());
+	}
+
 }
 
 void PluginManager::FireOnPreMainEvent() {

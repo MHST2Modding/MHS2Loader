@@ -59,7 +59,7 @@ __int64 __fastcall HookedObserverManager_NoteRand(__int64 a1) {
 
 int EnableCoreHooks() {
 	auto image_base = (uint64_t)GetModuleHandle(NULL);
-	spdlog::get("PreLoader")->debug("Image Base: {0:x}", image_base);
+	spdlog::get("PreLoader")->info("Image Base: {0:x}", image_base);
 
 	void* mainCrtStartAddr = (void*)SigScan::Scan(image_base, "48 83 EC 28 E8 ?? ?? ?? ?? 48 83 C4 28 E9 ?? ?? ?? ??");
 	if (mainCrtStartAddr == nullptr) {
@@ -105,7 +105,7 @@ int EnableCoreHooks() {
 
 	if (MH_Initialize() != MH_OK)
 	{
-		spdlog::get("PreLoader")->error("Failed to enable core hooks!");
+		spdlog::get("PreLoader")->error("Failed to initialize minhook!");
 		return 1;
 	}
 
@@ -164,11 +164,13 @@ int EnableCoreHooks() {
 // by hooking the CRT startup and bypassing capcom's anti-tamper code.
 void LoaderLockedInitialize() {
 	Log::InitializePreLogger();
-	if (!EnableCoreHooks()) {
+
+	spdlog::get("PreLoader")->info("Begin enabling core hooks");
+	if (EnableCoreHooks()) {
 		spdlog::get("PreLoader")->error("Failed to enable core hooks!");
 		return;
 	}
-	spdlog::get("PreLoader")->debug("Enabled core hooks.");
+	spdlog::get("PreLoader")->info("Enabled core hooks");
 }
 
 

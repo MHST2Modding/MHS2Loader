@@ -7,6 +7,8 @@
 #include <vector>
 #include <iterator>
 #include <algorithm>
+#include "spdlog/spdlog.h"
+#include "spdlog/async.h"
 
 std::vector<std::string> SpaceSplit(std::string text) {
 
@@ -39,6 +41,10 @@ uint64_t parseHex(std::string s) {
 
 bool IsExecScannable(DWORD protect) {
 	return (protect & (PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE)); // && !IsGuarded(protect);
+}
+
+bool IsReadScannable(DWORD protect) {
+	return (protect & (PAGE_READONLY | PAGE_READWRITE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE));
 }
 
 #if defined(_MSC_VER)
@@ -82,7 +88,8 @@ uint64_t SigScan::Scan(uint64_t start_address, const std::string& sig) {
 	// Go over each region and scan.
 	while (VirtualQuery(lpMem, &mbi, sizeof(MEMORY_BASIC_INFORMATION))) {
 		uint8_t* region_end = (uint8_t*)((uint64_t)mbi.BaseAddress + (uint64_t)mbi.RegionSize);
-		if (IsExecScannable(mbi.Protect)) {
+		//spdlog::get("PreLoader")->info("Scanning region {0:X} to {1:X}. Protection: {2:X}", (uint64_t)mbi.BaseAddress, (uint64_t)region_end, mbi.Protect);
+		if (IsReadScannable(mbi.Protect)) {
 			for (uint8_t* p = (uint8_t*)mbi.BaseAddress; p < region_end; p++) {
 				// Try to match at this addr.
 				if (dataCompare(p, sbd, swd)) {
