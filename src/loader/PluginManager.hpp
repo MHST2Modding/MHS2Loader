@@ -1,4 +1,9 @@
 #pragma once
+#include <memory>
+#include <vector>
+#include <string>
+
+#include "Plugin.hpp"
 
 class PluginManager {
 public:
@@ -12,4 +17,5 @@ private:
     PluginManager(const PluginManager&) = delete;
     PluginManager& operator=(const PluginManager&) = delete;
 
+    std::vector<std::unique_ptr<Plugin>> plugins;
 };

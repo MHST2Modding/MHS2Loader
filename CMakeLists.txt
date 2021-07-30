@@ -19,6 +19,10 @@ add_library(LoaderCore SHARED
 	"src/loader/Log.cpp"
 	"src/loader/PluginManager.cpp"
 	"src/loader/PluginManager.hpp"
+	"src/loader/Plugin.cpp"
+	"src/loader/Plugin.hpp"
+	"src/loader/PluginConfig.hpp"
+	"src/loader/PluginConfig.cpp"
 )
 target_include_directories (LoaderCore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_include_directories (LoaderCore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/extern)

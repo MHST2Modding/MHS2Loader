@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iostream>
 #include <filesystem>
+#include <mutex>
 #include "spdlog/spdlog.h"
 #include "spdlog/async.h"
 #include "MinHook.h"
@@ -12,6 +13,11 @@
 #include "PluginManager.hpp"
 #include "SigScan.hpp"
 
+std::mutex g_initialized_mutex;
+bool g_initialized;
+
+typedef int(*main_t)(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd);
+main_t fpMain = NULL;
 typedef int64_t(*mainCRTStartup_t)();
 mainCRTStartup_t fpMainCRTStartup = NULL;
 typedef bool(*anticheatDispatch_t)(int idx);
@@ -32,11 +38,19 @@ int64_t hookedMainCRTStartup()
 
 	logger->info("Loading plugins from main thread (pre-main)");
 
-	PluginManager::Instance().InitPlugins();
+	auto&& pm = PluginManager::Instance();
+	pm.InitPlugins();
+	pm.FireOnPreMainEvent();
 
 
 	return fpMainCRTStartup();
 }
+
+int __stdcall hookedMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
+	PluginManager::Instance().FireOnMainEvent();
+	return fpMain(hInstance, hPrevInstance, lpCmdLine, nShowCmd);
+}
+
 
 bool hookedAnticheatDispatch(int idx)
 {
@@ -64,6 +78,12 @@ int EnableCoreHooks() {
 	void* mainCrtStartAddr = (void*)SigScan::Scan(image_base, "48 83 EC 28 E8 ?? ?? ?? ?? 48 83 C4 28 E9 ?? ?? ?? ??");
 	if (mainCrtStartAddr == nullptr) {
 		spdlog::get("PreLoader")->critical("Failed to scan for mainCrtStartAddr");
+		return 1;
+	}
+
+	void* mainStartAddr = (void*)SigScan::Scan(image_base, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 B8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 2B E0 48 8B E9 41 8B F9 B9 0B 00 00 00");
+	if (mainStartAddr == nullptr) {
+		spdlog::get("PreLoader")->critical("Failed to scan for mainStartAddr");
 		return 1;
 	}
 
@@ -156,27 +176,47 @@ int EnableCoreHooks() {
 		return 1;
 	}
 
+	if (MH_CreateHook(mainStartAddr, &hookedMain, reinterpret_cast<LPVOID*>(&fpMain)) != MH_OK)
+	{
+		spdlog::get("PreLoader")->error("Failed to create main hook");
+		return 1;
+	}
+
+	if (MH_EnableHook(mainStartAddr) != MH_OK)
+	{
+		spdlog::get("PreLoader")->error("Failed to enable main hook");
+		return 1;
+	}
+
+
+
 	return 0;
 }
 
 // This function is called from the loader-locked DllMain,
 // does the bare-minimum to get control flow in the main thread
 // by hooking the CRT startup and bypassing capcom's anti-tamper code.
-void LoaderLockedInitialize() {
+int LoaderLockedInitialize() {
 	Log::InitializePreLogger();
 
-	spdlog::get("PreLoader")->info("Begin enabling core hooks");
+	spdlog::get("PreLoader")->info("Begin enabling core hooks on thread: {0}", GetCurrentThreadId());
 	if (EnableCoreHooks()) {
 		spdlog::get("PreLoader")->error("Failed to enable core hooks!");
-		return;
+		return 1;
 	}
 	spdlog::get("PreLoader")->info("Enabled core hooks");
+	return 0;
 }
 
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
-	if (fdwReason == DLL_PROCESS_ATTACH) {
-		LoaderLockedInitialize();
+	if (fdwReason == DLL_THREAD_ATTACH || fdwReason == DLL_PROCESS_ATTACH) {
+		std::lock_guard<std::mutex> guard(g_initialized_mutex);
+		if (g_initialized == false) {
+			if (!LoaderLockedInitialize()) {
+				g_initialized = true;
+			}
+		}
 	}
 
 	return TRUE;
