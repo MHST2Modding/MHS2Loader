@@ -30,18 +30,15 @@ typedef __int64(__fastcall* ObserverManager_NoteRand_t)(__int64 a1);
 ObserverManager_NoteRand_t fpObserverManager_NoteRand = NULL;
 
 int64_t hookedMainCRTStartup()
-{
-	
+{	
 	Log::OpenConsole();
 	Log::InitializeLogger();
 	auto logger = spdlog::get("Loader");
-
 	logger->info("Loading plugins from main thread (pre-main)");
 
 	auto&& pm = PluginManager::Instance();
 	pm.InitPlugins();
 	pm.FireOnPreMainEvent();
-
 
 	return fpMainCRTStartup();
 }

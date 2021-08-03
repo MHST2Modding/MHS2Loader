@@ -9,6 +9,7 @@ class PluginManager {
 public:
     static PluginManager& Instance();
     void InitPlugins();
+    void FireOnInitializeEvent();
     void FireOnPreMainEvent();
     void FireOnMainEvent();
 private:

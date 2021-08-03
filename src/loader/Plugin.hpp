@@ -9,7 +9,6 @@ class Plugin {
 public:
 	Plugin(PluginConfig config, std::string path, bool structured);
 
-	std::string name;
 	std::string path;
 	bool isStructuredPlugin;
 	PluginConfig config;

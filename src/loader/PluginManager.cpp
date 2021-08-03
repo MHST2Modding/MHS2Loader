@@ -3,6 +3,7 @@
 #include <iostream>
 #include <filesystem>
 #include <Windows.h>
+#include "Log.hpp"
 #include "Plugin.hpp"
 #include "spdlog/spdlog.h"
 namespace fs = std::filesystem;
@@ -83,8 +84,21 @@ void PluginManager::InitPlugins() {
 
 		plugin->moduleHandle = LoadLibraryA(pluginDllPath.c_str());
 	}
+
+	FireOnInitializeEvent();
 }
 
+
+void PluginManager::FireOnInitializeEvent() {
+	typedef void (*OnInitializeEvent_t)(int loggerHandle, const char* path);
+	for (auto&& plugin : this->plugins) {
+		auto loggerHandle = Log::NewPluginLogger(plugin->config.name);
+		auto cb = (OnInitializeEvent_t)GetProcAddress(plugin->moduleHandle, "OnInitialize");
+		if (cb != nullptr)
+			cb(loggerHandle, plugin->path.c_str());
+	}
+
+}
 
 void PluginManager::FireOnPreMainEvent() {
 	typedef void (*OnPreMainEvent_t)();
