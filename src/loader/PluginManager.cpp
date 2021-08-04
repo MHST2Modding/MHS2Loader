@@ -43,8 +43,10 @@ void PluginManager::InitPlugins() {
 						ifs.close();
 						auto config = j.get<PluginConfig>();
 
-						auto mod = std::make_unique<Plugin>(config, (fs::current_path() / p.path()).string(), true);
-						this->plugins.push_back(std::move(mod));
+						if (config.enabled) {
+							auto mod = std::make_unique<Plugin>(config, (fs::current_path() / p.path()).string(), true);
+							this->plugins.push_back(std::move(mod));
+						}
 					}
 					catch (const std::exception& e)
 					{
