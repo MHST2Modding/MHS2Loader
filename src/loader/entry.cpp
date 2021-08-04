@@ -40,7 +40,7 @@ int64_t hookedMainCRTStartup()
 	Log::OpenConsole();
 	Log::InitializeLogger();
 	auto logger = spdlog::get("Loader");
-	logger->info("Loading plugins from main thread (pre-main)");
+	logger->info("Loading mods from main thread (pre-main)");
 
 	// Check if the nexus version has been (soft) disabled.
 	// If there is no internet connection, the site no longer exists,
@@ -83,6 +83,9 @@ int64_t hookedMainCRTStartup()
 	// Initialize the plugins and fire the starting events.
 	auto&& pm = PluginManager::Instance();
 	pm.InitPlugins();
+
+	logger->info("Finished loading mods");
+
 	pm.FireOnPreMainEvent();
 
 	return fpMainCRTStartup();
