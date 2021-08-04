@@ -1,3 +1,4 @@
+#define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <iostream>
 #include <cstdio>
@@ -8,6 +9,10 @@
 #include "spdlog/spdlog.h"
 #include "spdlog/async.h"
 #include "MinHook.h"
+
+#ifdef  LOADER_NEXUS_CHECK
+#include "cpp-httplib/httplib.h"
+#endif // LOADER_NEXUS_CHECK
 
 #include "Log.hpp"
 #include "PluginManager.hpp"
@@ -31,11 +36,51 @@ ObserverManager_NoteRand_t fpObserverManager_NoteRand = NULL;
 
 int64_t hookedMainCRTStartup()
 {	
+	// Initialize the console and logger.
 	Log::OpenConsole();
 	Log::InitializeLogger();
 	auto logger = spdlog::get("Loader");
 	logger->info("Loading plugins from main thread (pre-main)");
 
+	// Check if the nexus version has been (soft) disabled.
+	// If there is no internet connection, the site no longer exists,
+	// or if the file is unparsable, then the modloader will work
+	// completely normally.
+	// 
+	// This check is only intended to future-proof against potential misuse
+	// of Nexus's for-profit "Collection" feature, which would keep this mod
+	// available to download even if I delete it from the mod listing.
+	// 
+	// (Nexus's collection feature is HEAVILY targeted towards paid users).
+	#ifdef LOADER_NEXUS_CHECK
+	try
+	{
+		httplib::Client cli("http://raw.githack.com");
+		auto res = cli.Get("/Andoryuuta/MHS2Loader/master/nexus_drm.json");
+		if (res != nullptr) {
+			json j = json::parse(res->body);
+
+			bool disabled = j["nexus_version_disabled"].get<bool>();
+			if (disabled) {
+				auto message = j["reason"].get<std::string>();
+				logger->info("The Nexus-based version of this mod loader has been disabled. Mods will not be loaded.");
+				logger->info("Disabled for the following reason: {0}", message);
+
+				// Nexus version has been disabled, start game without loading any mods.
+				return fpMainCRTStartup();
+			}
+		}
+	}
+	catch (const std::exception& e)
+	{
+		// Silently ignore any unexpected failure to not hinder user experience.
+		//logger->info(e.what());
+	}
+
+	#endif // LOADER_NEXUS_CHECK
+
+
+	// Initialize the plugins and fire the starting events.
 	auto&& pm = PluginManager::Instance();
 	pm.InitPlugins();
 	pm.FireOnPreMainEvent();

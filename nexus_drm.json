@@ -1,4 +1,4 @@
 {
-  "nexus_version_disabled": true,
-  "reason":  "testing\nnexus\nplugin"
+  "nexus_version_disabled": false,
+  "reason":  ""
 }
