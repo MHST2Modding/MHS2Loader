@@ -18,6 +18,8 @@
 #include "PluginManager.hpp"
 #include "SigScan.hpp"
 
+#define VERSION_MESSAGE "MHS2Loader v2.0.0"
+
 std::mutex g_initialized_mutex;
 bool g_initialized;
 
@@ -40,6 +42,7 @@ int64_t hookedMainCRTStartup()
 	Log::OpenConsole();
 	Log::InitializeLogger();
 	auto logger = spdlog::get("Loader");
+	logger->info(VERSION_MESSAGE);
 	logger->info("Loading mods from main thread (pre-main)");
 
 	// Check if the nexus version has been (soft) disabled.
@@ -151,13 +154,16 @@ int EnableCoreHooks() {
 	}
 
 	// TODO(Andoryuuta): Sigscan me!
+	// AOB (skip first): 40 53 48 83 EC 20 48 8B D9 48 8B 0D ?? ?? ?? ?? 48 85 C9 74 4E 80 79 38 00
 	/*
 	void* sObserverManagerNoteRandAddr = (void*)SigScan::Scan(image_base, "");
 	if (sObserverManagerNoteRandAddr == nullptr) {
 		spdlog::get("PreLoader")->critical("Failed to scan for sObserverManagerNoteRandAddr");
 		return 1;
 	}*/
-	void* sObserverManagerNoteRandAddr = (void*)0x140995B50; // v1.1.0
+
+	void* sObserverManagerNoteRandAddr = (void*)0x140998100; // v1.2.0
+	//void* sObserverManagerNoteRandAddr = (void*)0x140995B50; // v1.1.0
 	//void* sObserverManagerNoteRandAddr = (void*)0x140995990; // v0
 
 	/*
