@@ -18,7 +18,7 @@
 #include "PluginManager.hpp"
 #include "SigScan.hpp"
 
-#define VERSION_MESSAGE "MHS2Loader v2.0.0"
+#define VERSION_MESSAGE "MHS2Loader v2.0.1"
 
 std::mutex g_initialized_mutex;
 bool g_initialized;
@@ -59,6 +59,9 @@ int64_t hookedMainCRTStartup()
 	try
 	{
 		httplib::Client cli("http://raw.githack.com");
+		cli.set_connection_timeout(0, 300000); // 300 ms
+		cli.set_read_timeout(5, 0); // 5 seconds
+		cli.set_write_timeout(5, 0); // 5 seconds
 		auto res = cli.Get("/Andoryuuta/MHS2Loader/master/nexus_drm.json");
 		if (res != nullptr) {
 			json j = json::parse(res->body);

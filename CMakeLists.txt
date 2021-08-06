@@ -32,5 +32,6 @@ target_link_libraries(LoaderCore PUBLIC spdlog::spdlog)
 target_link_libraries(LoaderCore PUBLIC minhook)
 
 if(LOADER_NEXUS_CHECK)
+	message("Nexus check enabled")
 	target_compile_definitions(LoaderCore PRIVATE LOADER_NEXUS_CHECK=LOADER_NEXUS_CHECK)
 endif()
