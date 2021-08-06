@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_subdirectory(extern)
 
-set(LOADER_NEXUS_CHECK "A check only for the nexus version to future-proof against collection misuse" OFF)
+option(LOADER_NEXUS_CHECK "A check only for the nexus version to future-proof against collection misuse" OFF)
 
 add_library(dinput8 SHARED
 	"src/dinput_proxy/dinput8_proxy.cpp"
