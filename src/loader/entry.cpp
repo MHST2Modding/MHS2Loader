@@ -18,7 +18,7 @@
 #include "PluginManager.hpp"
 #include "SigScan.hpp"
 
-#define VERSION_MESSAGE "MHS2Loader v2.0.1"
+#define VERSION_MESSAGE "MHS2Loader v3.0.0"
 
 std::mutex g_initialized_mutex;
 bool g_initialized;
@@ -58,7 +58,7 @@ int64_t hookedMainCRTStartup()
 	#ifdef LOADER_NEXUS_CHECK
 	try
 	{
-		httplib::Client cli("http://raw.githack.com");
+		httplib::Client cli("http://rawcdn.githack.com");
 		cli.set_connection_timeout(0, 300000); // 300 ms
 		cli.set_read_timeout(5, 0); // 5 seconds
 		cli.set_write_timeout(5, 0); // 5 seconds
@@ -156,16 +156,18 @@ int EnableCoreHooks() {
 		return 1;
 	}
 
-	// TODO(Andoryuuta): Sigscan me!
 	// AOB (skip first): 40 53 48 83 EC 20 48 8B D9 48 8B 0D ?? ?? ?? ?? 48 85 C9 74 4E 80 79 38 00
-	/*
-	void* sObserverManagerNoteRandAddr = (void*)SigScan::Scan(image_base, "");
-	if (sObserverManagerNoteRandAddr == nullptr) {
+	const char* sObserverManagerNoteRandAddrAOB = "40 53 48 83 EC 20 48 8B D9 48 8B 0D ?? ?? ?? ?? 48 85 C9 74 4E 80 79 38 00";
+	auto matchsObserverManagerNoteRandAddr = SigScan::ScanAll(image_base, sObserverManagerNoteRandAddrAOB);
+	if (matchsObserverManagerNoteRandAddr.size() < 2) {
 		spdlog::get("PreLoader")->critical("Failed to scan for sObserverManagerNoteRandAddr");
 		return 1;
-	}*/
+	}
 
-	void* sObserverManagerNoteRandAddr = (void*)0x140998100; // v1.2.0
+	void* sObserverManagerNoteRandAddr = (void*)matchsObserverManagerNoteRandAddr[1];
+	
+	//void* sObserverManagerNoteRandAddr = (void*)0x140994280; // v1.3.0
+	//void* sObserverManagerNoteRandAddr = (void*)0x140998100; // v1.2.0
 	//void* sObserverManagerNoteRandAddr = (void*)0x140995B50; // v1.1.0
 	//void* sObserverManagerNoteRandAddr = (void*)0x140995990; // v0
 
