@@ -1,5 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+#include <intrin.h>
+#include <psapi.h>
 #include <iostream>
 #include <cstdio>
 #include <fstream>
@@ -17,12 +19,17 @@
 #include "Log.hpp"
 #include "PluginManager.hpp"
 #include "SigScan.hpp"
+#include "Win32Internals.hpp"
 
-#define VERSION_MESSAGE "MHS2Loader v3.0.0"
+#pragma intrinsic(_ReturnAddress)
+
+#define VERSION_MESSAGE "MHS2Loader v4.0.0"
 
 std::mutex g_initialized_mutex;
 bool g_initialized;
 
+typedef void(*GetSystemTimeAsFileTime_t)(LPFILETIME lpSystemTimeAsFileTime);
+GetSystemTimeAsFileTime_t fpGetSystemTimeAsFileTime = NULL;
 typedef int(*main_t)(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd);
 main_t fpMain = NULL;
 typedef int64_t(*mainCRTStartup_t)();
@@ -132,7 +139,7 @@ int EnableCoreHooks() {
 		return 1;
 	}
 
-	void* mainStartAddr = (void*)SigScan::Scan(image_base, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 B8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 2B E0 48 8B E9 41 8B F9 B9 0B 00 00 00");
+	void* mainStartAddr = (void*)SigScan::Scan(image_base, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 B8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 2B E0 48 8B E9 41 8B F9 B9 ?? ?? ?? ??");
 	if (mainStartAddr == nullptr) {
 		spdlog::get("PreLoader")->critical("Failed to scan for mainStartAddr");
 		return 1;
@@ -178,12 +185,6 @@ int EnableCoreHooks() {
 	void* anticheatCheckFunctionAddr = (void*)0x1408C1670; // 48 89 5C 24 10 56 48 83 EC 20 4C 8B 0D
 	void* sObserverManagerNoteRandAddr = (void*)0x140995990;
 	*/
-
-	if (MH_Initialize() != MH_OK)
-	{
-		spdlog::get("PreLoader")->error("Failed to initialize minhook!");
-		return 1;
-	}
 
 	if (MH_CreateHook(anticheatDispatchAddr, &hookedAnticheatDispatch, reinterpret_cast<LPVOID*>(&fpAnticheatDispatch)) != MH_OK) {
 		spdlog::get("PreLoader")->error("Failed to create anticheatDispatch hook");
@@ -244,23 +245,72 @@ int EnableCoreHooks() {
 		return 1;
 	}
 
-
-
 	return 0;
+}
+
+// GetSystemTimeAsFileTime gets called pre-WinMain in the MSVCRT setup.
+void hookedGetSystemTimeAsFileTime(LPFILETIME lpSystemTimeAsFileTime) {
+	// Get return address of this hooked call.
+	uint64_t retAddress = (uint64_t)_ReturnAddress();
+
+	// Get the start and end of the base process module (the main .exe).
+	MODULEINFO moduleInfo;
+	GetModuleInformation(GetCurrentProcess(), GetModuleHandle(NULL), &moduleInfo, sizeof(MODULEINFO));
+	uint64_t baseModStart = (uint64_t)moduleInfo.lpBaseOfDll;
+	uint64_t baseModEnd = (uint64_t)moduleInfo.lpBaseOfDll + (uint64_t)moduleInfo.lpBaseOfDll;
+	
+	// If we are being called from within the module memory (e.g. not a random library),
+	// then we can assume this is likely the real code post-unpack.
+	if (retAddress >= baseModStart && retAddress <= baseModEnd) {
+		spdlog::get("PreLoader")->info("Got GetSystemTimeAsFileTime call with valid return address. Base module start: {0:x}, Base module end: {1:x}, GetSystemTimeAsFileTime Return address: {2:x}",
+			baseModStart,
+			baseModEnd,
+			retAddress);
+
+		// Enable our hooks and, if successful, disable the GetSystemTimeAsFileTime as we will not need it anymore.
+		if (EnableCoreHooks()) {
+			spdlog::get("PreLoader")->error("Failed to enable core hooks!");
+			return;
+		}
+
+		else {
+			spdlog::get("PreLoader")->info("Enabled core hooks");
+
+			if (MH_DisableHook(GetSystemTimeAsFileTime) != MH_OK) {
+				spdlog::get("PreLoader")->error("Failed to disable GetSystemTimeAsFileTime hook");
+				return;
+			}
+		}
+	}
+
+	fpGetSystemTimeAsFileTime(lpSystemTimeAsFileTime);
 }
 
 // This function is called from the loader-locked DllMain,
 // does the bare-minimum to get control flow in the main thread
-// by hooking the CRT startup and bypassing capcom's anti-tamper code.
+// by hooking a function called in the CRT startup (GetSystemTimeAsFileTime) to
+// bypass capcom's anti-tamper code early before any C++ static initalizers are called.
 int LoaderLockedInitialize() {
 	Log::InitializePreLogger();
 
-	spdlog::get("PreLoader")->info("Begin enabling core hooks on thread: {0}", GetCurrentThreadId());
-	if (EnableCoreHooks()) {
-		spdlog::get("PreLoader")->error("Failed to enable core hooks!");
+	spdlog::get("PreLoader")->info("Begin enabling post-unpack hooks on thread: {0}", GetCurrentThreadId());
+
+	if (MH_Initialize() != MH_OK)
+	{
+		spdlog::get("PreLoader")->error("Failed to initialize minhook!");
 		return 1;
 	}
-	spdlog::get("PreLoader")->info("Enabled core hooks");
+
+	// Hook GetSystemTimeAsFileTime in order to get control of execution after the .exe is unpacked in memory.
+	if (MH_CreateHook(GetSystemTimeAsFileTime, &hookedGetSystemTimeAsFileTime, reinterpret_cast<LPVOID*>(&fpGetSystemTimeAsFileTime)) != MH_OK) {
+		spdlog::get("PreLoader")->error("Failed to create GetSystemTimeAsFileTime hook");
+		return 1;
+	}
+	if (MH_EnableHook(GetSystemTimeAsFileTime) != MH_OK) {
+		spdlog::get("PreLoader")->error("Failed to enable GetSystemTimeAsFileTime hook");
+		return 1;
+	}
+
 	return 0;
 }
 

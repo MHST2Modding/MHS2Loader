@@ -25,6 +25,7 @@ extern "C" {
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
 	if (fdwReason == DLL_PROCESS_ATTACH) {
+		//MessageBoxA(NULL, "Paused pre-graphics initialization.\nInject RenderDoc then press OK.", "MHS2Loader renderdoc pause", MB_OK);
 		LoadLibraryA("LoaderCore.dll");
 	}
 
